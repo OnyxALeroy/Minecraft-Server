@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  minecraft-server:
+    build: .
+    container_name: minecraft-modded-server
+    ports:
+      - "25565:25565"
+    volumes:
+      - ./server-data:/minecraft/server
+      - ./mods:/minecraft/mods
+      - ./config:/minecraft/config
+      - ./modrinth-instance:/minecraft/modrinth
+      - ./server.properties:/minecraft/server/server.properties
+      - ./eula.txt:/minecraft/server/eula.txt
+    environment:
+      - MINECRAFT_VERSION=latest
+      - MEMORY_SIZE=4G
+      - SERVER_JAR=server.jar
+      - TYPE=MODRINTH
+      - MODRINTH_INSTANCE_PATH=/minecraft/modrinth
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+  # Optional: Web interface for server management
+  mc-web:
+    image: itzg/mc-web
+    container_name: minecraft-web
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_HOST=minecraft-server
+      - SERVER_PORT=25565
+    depends_on:
+      - minecraft-server
+    restart: unless-stopped

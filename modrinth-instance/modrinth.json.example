@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "game": "minecraft",
+  "versionId": "1.20.1",
+  "name": "Example Modpack",
+  "summary": "An example modpack for Docker Minecraft Server",
+  "files": [
+    {
+      "path": "modrinth.json",
+      "hashes": {},
+      "downloads": []
+    }
+  ],
+  "dependencies": [
+    {
+      "versionId": "fabric-loader-0.14.21-1.20.1",
+      "modId": "fabricloader"
+    },
+    {
+      "versionId": "1.6.9-1.20.1",
+      "modId": "fabric-api"
+    }
+  ]
+}
