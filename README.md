@@ -1,8 +1,8 @@
 # Minecraft Modded Server - Docker Environment
 
-A complete Docker-based setup for hosting a Minecraft modded server with Modrinth integration. This repository provides everything you need to run a modded Minecraft server with easy deployment and management.
+A complete Docker-based setup for hosting a Minecraft modded server with Modrinth integration and easy management. This repository provides everything you need to run a modded Minecraft server with automatic world persistence, backups, and simple commands.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Docker and Docker Compose installed on your system
@@ -14,270 +14,400 @@ git clone <your-repo-url>
 cd Minecraft-Server
 ```
 
-### 2. Add Your Modrinth Instance
-Place your Modrinth instance files in the `modrinth-instance/` directory:
+### 2. Add Your Modrinth Modpack
+**Method 1: .mrpack file (Recommended)**
 ```bash
-# Copy your Modrinth instance here
-cp -r /path/to/your/modrinth-instance/* ./modrinth-instance/
+# Copy your .mrpack file to modrinth-instance folder
+cp /path/to/your/pack.mrpack ./modrinth-instance/
 ```
 
-### 3. Configure Server Settings
-Edit the server configuration:
+**Method 2: Manual mod files**
 ```bash
-# Edit server properties (optional)
-nano server.properties
-
-# Accept EULA (required)
-echo "eula=true" > eula.txt
+# Copy mods and configs manually
+mkdir -p modrinth-instance/{mods,config}
+cp -r /path/to/mods/* ./modrinth-instance/mods/
+cp -r /path/to/configs/* ./modrinth-instance/config/
 ```
 
-### 4. Deploy the Server
+### 3. Start the Server
 ```bash
-# Build and start the server
-docker-compose up -d
-
-# View server logs
-docker-compose logs -f minecraft-server
+./manage.sh start
 ```
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```
 Minecraft-Server/
 ├── Dockerfile                 # Server container definition
-├── docker-compose.yml         # Multi-container orchestration
-├── start-server.sh           # Server startup script with Modrinth integration
+├── docker-compose.yml         # Docker orchestration
+├── start.sh                  # Server startup script
+├── manage.sh                 # Management script (USE THIS!)
+├── MANAGER.md               # Management guide
 ├── README.md                 # This file
-├── .gitignore                # Git ignore rules
-├── server.properties         # Server configuration (create this)
-├── eula.txt                  # EULA acceptance (create this)
-├── modrinth-instance/        # 📁 YOUR MODRINTH INSTANCE GOES HERE
-├── server-data/              # Server world and data (auto-created)
-├── mods/                     # Mods directory (auto-created)
-└── config/                   # Config files (auto-created)
+├── .gitignore               # Git ignore rules
+├── modrinth-instance/        # YOUR MODPACK GOES HERE
+│   └── *.mrpack           # Your modrinth modpack files
+├── server-data/              # World and data (auto-created)
+│   ├── world/              # Main world
+│   ├── world_nether/        # Nether dimension
+│   ├── world_the_end/       # End dimension
+│   ├── mods/                # Installed mods
+│   ├── config/              # Mod configurations
+│   ├── logs/                # Server logs
+│   └── server.properties    # Server configuration
+├── backups/                 # World backups (auto-created)
+├── eula.txt.example         # Example EULA file
+└── server.properties.example # Example server properties
 ```
 
-## 🎮 How to Add Your Modrinth Instance
+## MAIN INTERFACE: Management Script
 
-### Method 1: Export from Modrinth App
-1. Open your modpack in the Modrinth App
-2. Go to `File` → `Export Instance`
-3. Choose `Folder` format
-4. Extract the contents to `./modrinth-instance/`
+The `manage.sh` script is your primary interface for all server operations.
 
-### Method 2: Manual Setup
-1. Create the directory: `mkdir modrinth-instance`
-2. Add your `modrinth.json` file (contains mod list)
-3. Add your `mods/` folder with all mod files
-4. Add your `config/` folder with mod configurations
-5. Add any resource packs or shader packs
+### Basic Operations
+```bash
+./manage.sh start        # Start server (keeps existing world)
+./manage.sh stop         # Stop server gracefully
+./manage.sh restart      # Quick restart
+./manage.sh logs         # Follow server logs in real-time
+./manage.sh help         # Show all available commands
+```
 
-### Required Files in Modrinth Instance
-- `modrinth.json` - Mod list and dependencies
-- `mods/` - All mod JAR files
-- `config/` - Mod configuration files (optional)
+### View Current Settings
+```bash
+./manage.sh properties
+```
+Output:
+```
+Current server.properties:
+World Name: world
+World Type: minecraft:normal
+Difficulty: easy
+Game Mode: survival
+Seed: Random
+Max Players: 20
+Server Port: 25565
+Online Mode: true
+```
 
-## 🌐 Server Address and Access
+### Edit Server Configuration
+```bash
+./manage.sh edit
+```
+- Opens `server-data/server.properties` in your editor
+- Common settings to change:
+  ```properties
+  difficulty=hard              # easy/normal/hard
+  level-seed=8675309          # Specific world seed
+  max-players=50              # More players
+  motd=My Epic Server!        # Server message
+  gamemode=creative            # creative/survival/adventure
+  ```
+- **Important**: Changes apply on next restart!
 
-### Default Server Address
-- **IP**: `localhost` (if running locally) or your server's public IP
-- **Port**: `25565`
-- **Full Address**: `localhost:25565` or `YOUR_IP:25565`
+### World Backup and Reset
+
+**Create Backup & Restart:**
+```bash
+./manage.sh backup
+```
+- Creates timestamped backup: `backups/world-backup-20240118-143022.tar.gz`
+- Restarts server safely
+- **Use when**: Before major changes, updates, or experiments
+
+**Reset World Completely:**
+```bash
+./manage.sh reset
+```
+Interactive process:
+```
+WARNING: This will delete your current world!
+Are you sure? (yes/no): yes
+Resetting world and starting server...
+```
+- Deletes: `world/`, `world_nether/`, `world_the_end/`
+- Generates fresh world using current server.properties
+- **Use when**: Want completely new start with different settings
+
+## Practical Workflows
+
+### Scenario 1: First Time Setup
+```bash
+# 1. Add your modpack
+cp your-pack.mrpack ./modrinth-instance/
+
+# 2. Start server
+./manage.sh start
+
+# 3. Connect to Minecraft: localhost:25565
+```
+
+### Scenario 2: Change World Difficulty
+```bash
+# 1. Edit settings
+./manage.sh edit
+# Change: difficulty=easy → difficulty=hard
+
+# 2. Restart to apply (keeps existing world)
+./manage.sh restart
+```
+
+### Scenario 3: Try New World Seed
+```bash
+# 1. Set seed in properties
+./manage.sh edit
+# Add/change: level-seed=123456789
+
+# 2. Reset world (generates new with seed)
+./manage.sh reset
+```
+
+### Scenario 4: Backup Before Major Update
+```bash
+# 1. Backup current progress
+./manage.sh backup
+
+# 2. Add new mods/update modpack
+# Place new .mrpack in modrinth-instance/
+
+# 3. Restart with updates
+./manage.sh restart
+```
+
+### Scenario 5: Server Won't Start?
+```bash
+# Check logs for errors
+./manage.sh logs
+
+# If mods are causing issues:
+./manage.sh backup      # Save current world first
+# Remove problematic mods from ./server-data/mods/
+./manage.sh restart      # Try without problematic mods
+```
+
+## Server Connection
+
+### Connecting to Your Server
+1. Open Minecraft (same version as your modpack)
+2. Go to `Multiplayer` → `Add Server`
+3. **Server Address**: `localhost:25565`
+4. **Server Name**: Whatever you want
+5. Click `Done` and join!
 
 ### Finding Your Server IP
 ```bash
-# Local IP (for LAN play)
+# For local network (friends on same WiFi)
 ip addr show | grep inet
 
-# Public IP (for internet play)
+# For internet friends
 curl ifconfig.me
 ```
 
-### Web Management Interface (Optional)
-If enabled in docker-compose.yml:
-- **Web Interface**: `http://localhost:8080`
-- **Server Status**: Real-time monitoring and management
+Friends would connect to: `YOUR_IP:25565`
 
-## 🎯 How to Play
+## Adding Mods and Modpacks
 
-### 1. Install Required Mods
-Players need the same mods as the server:
-- Use the same Modrinth instance
-- Or install mods individually from Modrinth
+### Option 1: Modrinth .mrpack (Easiest)
+1. Export your modpack from Modrinth App as `.mrpack`
+2. Copy to `./modrinth-instance/your-pack.mrpack`
+3. `./manage.sh reset` (for fresh install with new pack)
 
-### 2. Connect to Server
-1. Open Minecraft (same version as server)
-2. Go to `Multiplayer` → `Add Server`
-3. Enter server name and address: `YOUR_IP:25565`
-4. Click `Done` and join!
-
-### 3. Server Commands
-Common server commands (type in server console):
+### Option 2: Individual Mods
 ```bash
-list                    # Show online players
-op <player>            # Make player admin
-deop <player>          # Remove admin status
-whitelist add <player>  # Add to whitelist
-whitelist remove <player> # Remove from whitelist
-stop                    # Stop server gracefully
+# Copy mod files directly
+cp *.jar ./mods/
+
+# Copy config files (optional)
+cp -r configs/* ./config/
+
+./manage.sh restart
 ```
 
-## ⚙️ Configuration
-
-### Server Properties
-Edit `server.properties` for basic settings:
-```properties
-# Server name
-motd=My Modded Server
-
-# Max players
-max-players=20
-
-# Game mode
-gamemode=survival
-
-# Difficulty
-difficulty=hard
-
-# Enable whitelist (recommended)
-white-list=true
+### Option 3: Manual Modrinth Instance
+```bash
+mkdir -p modrinth-instance/{mods,config}
+# Copy mod files to modrinth-instance/mods/
+# Copy config files to modrinth-instance/config/
 ```
 
-### Docker Environment Variables
-In `docker-compose.yml`:
+## World Persistence and Backups
+
+### How Persistence Works
+- **Normal restart**: World automatically saves, no data loss
+- **Server crash**: World data preserved in `./server-data/`
+- **Docker restart**: All progress remains intact
+
+### Backup System
+```bash
+# Automatic backup before risky operations
+./manage.sh backup
+
+# Manual backup anytime
+docker-compose exec minecraft-server tar -czf /tmp/manual-backup.tar.gz /data/world
+
+# List all backups
+ls -la backups/
+# Output: world-backup-20240118-143022.tar.gz
+```
+
+### Restore from Backup
+```bash
+# 1. Stop server
+./manage.sh stop
+
+# 2. Restore backup
+tar -xzf backups/world-backup-20240118-143022.tar.gz -C server-data/
+
+# 3. Start server
+./manage.sh start
+```
+
+## Advanced Configuration
+
+### Performance Tuning
+Edit `docker-compose.yml` to adjust memory:
 ```yaml
 environment:
-  - MINECRAFT_VERSION=latest    # Minecraft version
-  - MEMORY_SIZE=4G             # Server RAM allocation
-  - SERVER_JAR=server.jar      # Server JAR name
+  - MEMORY_SIZE=8G    # Increase for more mods/players
 ```
 
-### Resource Allocation
-For different server sizes:
-```yaml
-# Small server (1-4 players, light mods)
-- MEMORY_SIZE=2G
+### Server Properties Reference
+Edit `./server-data/server.properties`:
+```properties
+# Core Settings
+level-name=world              # World folder name
+level-type=minecraft:normal    # normal/flat/largebiomes
+level-seed=                   # Empty = random, or specific number
+gamemode=survival             # survival/creative/adventure
+difficulty=hard               # easy/normal/hard
 
-# Medium server (5-10 players, moderate mods)
-- MEMORY_SIZE=4G
+# Multiplayer
+max-players=20               # Maximum concurrent players
+online-mode=true              # Require authenticated Minecraft
+white-list=false              # Only allow whitelisted players
 
-# Large server (10+ players, heavy mods)
-- MEMORY_SIZE=8G
+# Performance
+view-distance=10              # How far chunks render
+simulation-distance=6         # How far entities update
+
+# Features
+generate-structures=true      # Villages, temples, etc.
+allow-nether=true            # Enable Nether
+pvp=true                    # Player vs Player combat
+allow-flight=false            # Allow creative flying
 ```
 
-## 🔧 Management Commands
+## Troubleshooting
 
-### Docker Compose Commands
-```bash
-# Start server
-docker-compose up -d
-
-# Stop server
-docker-compose down
-
-# View logs
-docker-compose logs -f minecraft-server
-
-# Access server console
-docker-compose exec minecraft-server bash
-
-# Restart server
-docker-compose restart minecraft-server
-
-# Update server (pull latest changes)
-docker-compose pull && docker-compose up -d --build
-```
-
-### Backup Your World
-```bash
-# Create backup
-docker-compose exec minecraft-server tar -czf /tmp/world-backup-$(date +%Y%m%d).tar.gz /minecraft/server/world
-
-# Copy backup to host
-docker cp minecraft-server:/tmp/world-backup-$(date +%Y%m%d).tar.gz ./backups/
-```
-
-## 🛠️ Troubleshooting
-
-### Common Issues
+### Common Issues and Solutions
 
 **Server won't start:**
-- Check if `eula.txt` exists and contains `eula=true`
-- Verify Modrinth instance is properly placed
-- Check Docker logs: `docker-compose logs minecraft-server`
+```bash
+# Check logs
+./manage.sh logs
+
+# Verify EULA
+cat ./server-data/eula.txt  # Should contain: eula=true
+
+# Check modpack placement
+ls ./modrinth-instance/      # Should contain .mrpack files
+```
 
 **Can't connect to server:**
-- Verify port 25565 is open (check firewall)
-- Use correct IP address
-- Ensure server is fully started (wait 2-3 minutes)
+```bash
+# Check if server is running
+docker-compose ps
+
+# Verify port
+netstat -tulpn | grep 25565
+
+# Check firewall
+sudo ufw status
+```
 
 **Mods not loading:**
-- Check if mods are compatible with Minecraft version
-- Verify `modrinth.json` exists in instance folder
-- Check server logs for mod loading errors
-
-**Out of memory errors:**
-- Increase `MEMORY_SIZE` in docker-compose.yml
-- Remove resource-intensive mods
-- Check system available RAM
-
-### Performance Optimization
-```yaml
-# Add to docker-compose.yml for better performance
-environment:
-  - JAVA_OPTS="-XX:+UseG1GC -XX:MaxGCPauseMillis=200"
-```
-
-## 📝 Advanced Setup
-
-### Custom Startup Script
-Replace `start-server.sh` for custom server setup:
 ```bash
-#!/bin/bash
-# Your custom startup logic
-echo "Starting custom server setup..."
-# Add your commands here
+# Check mods directory
+ls ./server-data/mods/
+
+# Check logs for mod errors
+./manage.sh logs | grep -i error
 ```
 
-### Multiple Servers
-Duplicate the service in `docker-compose.yml`:
-```yaml
-minecraft-server-2:
-  build: .
-  ports:
-    - "25566:25565"  # Different port
-  # ... other config
+**Performance issues:**
+```bash
+# Increase memory allocation
+./manage.sh edit
+# In docker-compose.yml, change: MEMORY_SIZE=8G
+
+# Check system resources
+free -h
+df -h
 ```
 
-### Reverse Proxy
-Add Nginx for web interface:
-```yaml
-nginx:
-  image: nginx:alpine
-  ports:
-    - "80:80"
-  volumes:
-    - ./nginx.conf:/etc/nginx/nginx.conf
+## Maintenance Commands
+
+### Regular Maintenance
+```bash
+# Daily restart (good practice)
+./manage.sh restart
+
+# Weekly backup
+./manage.sh backup
+
+# Update modpack
+cp new-pack.mrpack ./modrinth-instance/
+./manage.sh backup    # Backup old world first
+./manage.sh reset     # Fresh start with new pack
 ```
 
-## 🤝 Contributing
+### Server Management
+```bash
+# Access server console directly
+docker-compose exec minecraft-server bash
+
+# Monitor resource usage
+docker stats minecraft-server
+
+# Clean old backups (keep last 5)
+cd backups && ls -t | tail -n +6 | xargs rm -f
+```
+
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+3. Test thoroughly with different modpacks
+4. Submit a pull request with detailed testing notes
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🆘 Support
+## Support
 
-- **Issues**: Report bugs via GitHub Issues
-- **Discord**: Join our community Discord
-- **Documentation**: Check the Wiki for detailed guides
+- **Issues**: Report bugs via GitHub Issues with logs
+- **Documentation**: Check MANAGER.md for detailed management guide
+- **Community**: Join our Discord for live help
 
 ---
 
-**Happy Gaming! 🎮**
+## Quick Reference Cheat Sheet
+
+```bash
+./manage.sh start       # Start server
+./manage.sh properties  # View settings  
+./manage.sh edit       # Change settings
+./manage.sh backup      # Backup world
+./manage.sh reset       # New world
+./manage.sh logs        # Monitor server
+./manage.sh stop        # Shut down
+./manage.sh help        # All commands
+
+# Connect: localhost:25565
+# World data: ./server-data/
+# Backups: ./backups/
+# Modpacks: ./modrinth-instance/
+```
+
+**Happy Gaming!

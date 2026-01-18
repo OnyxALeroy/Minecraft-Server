@@ -1,38 +1,22 @@
-FROM openjdk:21-jdk-slim
+FROM eclipse-temurin:21-jdk-jammy
 
-# Install required packages
+# Install base tools
 RUN apt-get update && apt-get install -y \
-    curl \
-    wget \
-    unzip \
-    jq \
+    curl wget unzip jq git \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# Install mrpack-install (The gold standard for .mrpack files)
+RUN curl -L -o /usr/local/bin/mrpack-install https://github.com/nothub/mrpack-install/releases/latest/download/mrpack-install-linux \
+    && chmod +x /usr/local/bin/mrpack-install
+
 WORKDIR /minecraft
 
-# Create directories for server and mods
-RUN mkdir -p /minecraft/server /minecraft/mods /minecraft/config /minecraft/modrinth
+# Copy the startup script into the image
+COPY start.sh /minecraft/start.sh
+RUN chmod +x /minecraft/start.sh
 
-# Download and install Modrinth App (CLI version)
-RUN wget -O /usr/local/bin/modrinth https://github.com/modrinth/cli/releases/latest/download/modrinth-linux-amd64 \
-    && chmod +x /usr/local/bin/modrinth
-
-# Copy startup script
-COPY start-server.sh /minecraft/start-server.sh
-RUN chmod +x /minecraft/start-server.sh
-
-# Expose Minecraft server port
+# Expose the standard port
 EXPOSE 25565
 
-# Set environment variables
-ENV MINECRAFT_VERSION=latest
-ENV MEMORY_SIZE=4G
-ENV SERVER_JAR=server.jar
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:25565 || exit 1
-
-# Start the server
-CMD ["/minecraft/start-server.sh"]
+# Run the script
+CMD ["/minecraft/start.sh"]
