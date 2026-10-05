@@ -4,6 +4,8 @@ A complete Docker-based setup for hosting a Minecraft modded server with Modrint
 
 ## Quick Start
 
+> New here? Follow the short step-by-step guide in [STARTING.md](STARTING.md).
+
 ### Prerequisites
 - Docker and Docker Compose installed on your system
 - At least 4GB of RAM available (8GB+ recommended for modded servers)
@@ -41,7 +43,9 @@ Minecraft-Server/
 ├── Dockerfile                 # Server container definition
 ├── docker-compose.yml         # Docker orchestration
 ├── start.sh                  # Server startup script
+├── backup.sh                 # Backup / restore logic (used by manage.sh)
 ├── manage.sh                 # Management script (USE THIS!)
+├── server.env                # Performance & tuning values
 ├── MANAGER.md               # Management guide
 ├── README.md                 # This file
 ├── .gitignore               # Git ignore rules
@@ -107,25 +111,27 @@ Online Mode: true
 
 ### World Backup and Reset
 
-**Create Backup & Restart:**
+**Create Backup:**
 ```bash
 ./manage.sh backup
 ```
-- Creates timestamped backup: `backups/world-backup-20240118-143022.tar.gz`
-- Restarts server safely
-- **Use when**: Before major changes, updates, or experiments
+- Stops the server gracefully, archives world + mods + config + server.properties, **verifies** the archive, restarts the server
+- Creates `backups/backup-<date>.tar.gz` + `backups/backup-<date>.txt` (manifest, see below)
+- Prints `Backup OK` on success; exits with an error otherwise
+- **Use when**: Before major changes, updates, Chunky, or experiments
+
+**Restore a Backup:**
+```bash
+./manage.sh restore        # pick from the list
+```
+See [World Persistence and Backups](#world-persistence-and-backups).
 
 **Reset World Completely:**
 ```bash
 ./manage.sh reset
 ```
-Interactive process:
-```
-WARNING: This will delete your current world!
-Are you sure? (yes/no): yes
-Resetting world and starting server...
-```
-- Deletes: `world/`, `world_nether/`, `world_the_end/`
+- Takes a backup first (the reset is aborted if the backup fails)
+- Deletes the world, mods, config and server jars, then reinstalls the modpack
 - Generates fresh world using current server.properties
 - **Use when**: Want completely new start with different settings
 
@@ -239,37 +245,95 @@ mkdir -p modrinth-instance/{mods,config}
 
 ### Backup System
 ```bash
-# Automatic backup before risky operations
-./manage.sh backup
-
-# Manual backup anytime
-docker-compose exec minecraft-server tar -czf /tmp/manual-backup.tar.gz /data/world
-
-# List all backups
-ls -la backups/
-# Output: world-backup-20240118-143022.tar.gz
+./manage.sh backup                    # stop, back up, verify, restart
+./manage.sh backups                   # list backups (size, MC version, modpack)
+./manage.sh verify <file>             # check an archive is intact and has a world
+./manage.sh backup-info <file>        # show what the backup needs (manifest)
 ```
+
+Each backup is two files in `backups/`:
+- `backup-<date>.tar.gz`: world, `mods/`, `config/`, `server.properties`
+- `backup-<date>.txt`: **manifest** describing the environment it was made in:
+  date, repo commit, Java, Minecraft version, loader, modpack file + sha1,
+  `server.env` values, the full mod list (with sha1) and `server.properties`.
+  The same file is also stored inside the archive as `BACKUP_INFO.txt`.
+
+Use the manifest to know what a backup needs: restore it with the **same modpack**
+(compare the `Modpack sha1`), or the mods may be re-installed differently on boot.
 
 ### Restore from Backup
 ```bash
-# 1. Stop server
-./manage.sh stop
-
-# 2. Restore backup
-tar -xzf backups/world-backup-20240118-143022.tar.gz -C server-data/
-
-# 3. Start server
-./manage.sh start
+./manage.sh restore                   # lists backups and asks which one
+./manage.sh restore backups/backup-20261005_210000.tar.gz
 ```
+1. The archive is verified, and you're shown its manifest plus the **mods that changed** since it was made
+2. You confirm with `yes`
+3. The server is stopped, the current world/mods/config/properties are **moved** to `server-data/pre-restore-<date>/` (never deleted), the backup is extracted, and the server starts
+
+Old `world-backup-*.tar.gz` archives (world only) can be restored too; your current mods are kept.
+
+### Test Your Backups (do this once!)
+A backup you have never restored is a hope, not a backup:
+1. `./manage.sh backup` → note the file name
+2. Join and place an obvious block at spawn
+3. `./manage.sh restore` → pick that backup
+4. Join again: the block must be gone
+5. Remove the leftover `server-data/pre-restore-*` folder (`sudo rm -rf`, files are owned by the container)
+
+### Safe Pre-generation with Chunky
+1. `./manage.sh backup` and check it prints `Backup OK`
+2. `./manage.sh console`, then start small:
+   ```
+   chunky radius 2000
+   chunky quiet 60
+   chunky start
+   ```
+   Expand later (`chunky radius 5000` → `chunky start`): already generated chunks are skipped
+3. Watch memory with `spark health`. On `OutOfMemoryError`, raise `MEMORY_SIZE` in `server.env`
+4. To stop cleanly: `chunky pause`. Progress is saved and `chunky continue` resumes
+5. **After a crash**: the server restarts by itself; run `chunky continue`
+6. If the world is damaged (missing or corrupted chunks, crash loop): `./manage.sh restore` and pick the backup from step 1
 
 ## Advanced Configuration
 
 ### Performance Tuning
-Edit `docker-compose.yml` to adjust memory:
-```yaml
-environment:
-  - MEMORY_SIZE=8G    # Increase for more mods/players
+All performance values live in **`server.env`** (open it with `./manage.sh tune`, apply with `./manage.sh restart`):
+
+| Variable | Default | Effect |
+|---|---|---|
+| `MEMORY_SIZE` | `4G` | Java heap. Use 4G–6G, and leave at least 2G for the host OS |
+| `USE_AIKAR_FLAGS` | `true` | Tuned G1 garbage-collector flags (fewer freezes) |
+| `VIEW_DISTANCE` | `7` | Chunks sent to players |
+| `SIMULATION_DISTANCE` | `5` | Chunks where mobs, redstone and crops tick (biggest CPU lever) |
+| `ENTITY_BROADCAST_RANGE` | `75` | % range at which entities are sent to clients |
+| `SYNC_CHUNK_WRITES` | `false` | Async chunk saving |
+| `NETWORK_COMPRESSION_THRESHOLD` | `256` | Packet compression threshold |
+| `MAX_TICK_TIME` | `60000` | Watchdog timeout (ms), `-1` disables |
+| `EXTRA_MODS` | `lithium ferrite-core chunky spark servercore` | Server-side Modrinth mods added on boot |
+
+The `server.properties` keys above are **overwritten on every boot** from `server.env`. Leave a value empty to stop enforcing it.
+
+`EXTRA_MODS` are fetched for the modpack's Minecraft version and skipped if the pack already contains them.
+
+**Pre-generate the world** (removes exploration lag; run it overnight):
+```bash
+./manage.sh console
+chunky radius 5000
+chunky start
+# detach: Ctrl-P then Ctrl-Q
 ```
+
+**Find what is lagging** (Spark):
+```bash
+./manage.sh console
+spark tps                # current TPS / MSPT
+spark profiler start     # let it run 3-5 min while lagging
+spark profiler stop      # prints a link to the flame graph
+```
+
+**Entity activation range** (ServerCore): after the first boot, edit `server-data/config/servercore/config.yml` and lower the activation ranges (e.g. animals 16, monsters 24), then restart.
+
+Optional: [C2ME](https://modrinth.com/mod/c2me-fabric) speeds up chunk generation a lot, but can conflict with some mods. Add `c2me-fabric` to `EXTRA_MODS` at your own risk.
 
 ### Server Properties Reference
 Edit `./server-data/server.properties`:
@@ -336,9 +400,9 @@ ls ./server-data/mods/
 
 **Performance issues:**
 ```bash
-# Increase memory allocation
-./manage.sh edit
-# In docker-compose.yml, change: MEMORY_SIZE=8G
+# Tune memory / distances (see "Performance Tuning")
+./manage.sh tune
+./manage.sh restart
 
 # Check system resources
 free -h
@@ -369,8 +433,8 @@ docker-compose exec minecraft-server bash
 # Monitor resource usage
 docker stats minecraft-server
 
-# Clean old backups (keep last 5)
-cd backups && ls -t | tail -n +6 | xargs rm -f
+# Clean old backups (keep last 5, with their manifests)
+cd backups && ls -t backup-*.tar.gz | tail -n +6 | while read f; do sudo rm -f "$f" "${f%.tar.gz}.txt"; done
 ```
 
 ## Contributing
@@ -398,7 +462,11 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ./manage.sh start       # Start server
 ./manage.sh properties  # View settings  
 ./manage.sh edit       # Change settings
-./manage.sh backup      # Backup world
+./manage.sh tune       # Performance settings (server.env)
+./manage.sh console    # Server console (Ctrl-P Ctrl-Q to detach)
+./manage.sh backup      # Backup world (verified)
+./manage.sh restore     # Restore a backup
+./manage.sh backups     # List backups
 ./manage.sh reset       # New world
 ./manage.sh logs        # Monitor server
 ./manage.sh stop        # Shut down

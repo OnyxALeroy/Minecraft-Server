@@ -14,19 +14,34 @@
 
 ## 🔄 World Management
 
-### Backup Current World & Restart
+### Backup Current World
 ```bash
 ./manage.sh backup
 ```
-- Creates timestamped backup in `./backups/`
-- Restarts server with new save
+- Stops the server (world saved), archives world + mods + config + server.properties
+- Verifies the archive, prints `Backup OK`, restarts the server
+- Writes a manifest `backups/backup-<date>.txt`: MC version, loader, modpack, mods, settings
+
+### List / Inspect Backups
+```bash
+./manage.sh backups              # list (size, MC version, modpack)
+./manage.sh backup-info <file>   # full manifest
+./manage.sh verify <file>        # integrity check
+```
+
+### Restore a Backup
+```bash
+./manage.sh restore              # pick from the list
+```
+- Shows the manifest and which mods changed since, asks `yes`
+- Current files are moved to `server-data/pre-restore-<date>/`, never deleted
 
 ### Delete World & Start Fresh
 ```bash
 ./manage.sh reset
 ```
-- **⚠️ Destructive!** Asks for confirmation
-- Deletes world, nether, end dimensions
+- **⚠️ Destructive!** Asks for confirmation, **takes a backup first**
+- Deletes world, mods, config; reinstalls the modpack
 - Generates new world with current server.properties
 
 ## ⚙️ Configuration
@@ -48,6 +63,21 @@ Shows:
 - Seed (or "Random")
 - Max players & port
 - Online mode
+
+### Tune Performance
+```bash
+./manage.sh tune
+./manage.sh restart
+```
+- Opens `server.env`: memory, GC flags, view/simulation distance, extra mods
+- These values override `server.properties` on every boot
+
+### Server Console
+```bash
+./manage.sh console
+```
+- Run commands such as `spark tps` or `chunky start`
+- Detach with **Ctrl-P then Ctrl-Q**. Ctrl-C stops the server!
 
 ## 📊 Server Management
 
@@ -80,8 +110,8 @@ Minecraft-Server/
 3. `./manage.sh reset`
 4. Server starts with new seed
 
-### Backup Before Major Update
-1. `./manage.sh backup`
+### Backup Before Major Update (or Chunky)
+1. `./manage.sh backup` (must print `Backup OK`)
 2. Add mods/updates
 3. `./manage.sh restart`
 

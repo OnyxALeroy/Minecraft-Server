@@ -9,8 +9,13 @@ services:
       - ./backups:/backups:z
       - ./modrinth-instance:/modpack:z
       - ./start.sh:/minecraft/start.sh
-    environment:
-      - MEMORY_SIZE=${MEMORY_SIZE:-4G}
-      - WORLD_BACKUP=${WORLD_BACKUP:-false}
-      - RESET_WORLD=${RESET_WORLD:-false}
+      - ./backup.sh:/minecraft/backup.sh
+    # Performance & tuning values: edit server.env
+    env_file:
+      - server.env
+    # Keep the console attachable (./manage.sh console)
+    stdin_open: true
+    tty: true
+    # Give Java time to save the world on stop (Docker's default is 10s)
+    stop_grace_period: 2m
     restart: unless-stopped
