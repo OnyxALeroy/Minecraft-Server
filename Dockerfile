@@ -9,6 +9,12 @@ RUN apt-get update && apt-get install -y \
 RUN curl -L -o /usr/local/bin/mrpack-install https://github.com/nothub/mrpack-install/releases/latest/download/mrpack-install-linux \
     && chmod +x /usr/local/bin/mrpack-install
 
+# Install rcon-cli (used by ./manage.sh to send console commands)
+ARG RCON_CLI_VERSION=1.7.7
+RUN ARCH=$(dpkg --print-architecture) \
+    && curl -fsSL "https://github.com/itzg/rcon-cli/releases/download/${RCON_CLI_VERSION}/rcon-cli_${RCON_CLI_VERSION}_linux_${ARCH}.tar.gz" \
+    | tar -xz -C /usr/local/bin rcon-cli
+
 WORKDIR /minecraft
 
 # Copy the startup script into the image

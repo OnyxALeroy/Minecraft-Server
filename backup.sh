@@ -116,7 +116,8 @@ cmd_create() {
     if [ ! -f "$level/level.dat" ]; then
         echo "ERROR: no world found at $DATA_DIR/$level (nothing to back up)." >&2; exit 1
     fi
-    for e in "$level" world_nether world_the_end mods config server.properties; do
+    for e in "$level" world_nether world_the_end mods config server.properties \
+             whitelist.json ops.json banned-players.json banned-ips.json; do
         [ -e "$e" ] && entries+=("$e")
     done
 

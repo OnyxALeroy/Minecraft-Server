@@ -348,7 +348,8 @@ difficulty=hard               # easy/normal/hard
 # Multiplayer
 max-players=20               # Maximum concurrent players
 online-mode=true              # Require authenticated Minecraft
-white-list=false              # Only allow whitelisted players
+white-list=true               # Only allow whitelisted players (set by WHITELIST in server.env,
+                              # manage players with ./manage.sh whitelist add <name>)
 
 # Performance
 view-distance=10              # How far chunks render

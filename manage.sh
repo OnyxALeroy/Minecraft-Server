@@ -23,6 +23,14 @@ do_backup() {
     bk create
 }
 
+# Send a console command to the running server through the internal RCON
+mc_cmd() {
+    is_running || { echo "ERROR: server is not running (./manage.sh start)."; return 1; }
+    docker compose exec -T "$SERVICE" sh -c \
+        'rcon-cli --port 25575 --password "$(grep "^rcon.password=" /data/server.properties | cut -d= -f2-)" "$@"' \
+        _ "$@"
+}
+
 case "$1" in
     "start")
         echo "Starting Minecraft server..."
@@ -130,6 +138,31 @@ case "$1" in
         echo "   Detach with Ctrl-P then Ctrl-Q. Ctrl-C would STOP the server!"
         docker attach mc-server
         ;;
+    "whitelist")
+        ACTION="$2"; shift 2 2>/dev/null
+        case "$ACTION" in
+            add|remove)
+                [ $# -gt 0 ] || { echo "Usage: ./manage.sh whitelist $ACTION <player> [player...]"; exit 1; }
+                for P in "$@"; do mc_cmd whitelist "$ACTION" "$P" || exit 1; done
+                ;;
+            list|reload)
+                mc_cmd whitelist "$ACTION"
+                ;;
+            on|off)
+                mc_cmd whitelist "$ACTION"
+                echo "NOTE: until next restart only. Set WHITELIST in server.env to make it permanent."
+                ;;
+            *)
+                echo "Usage: ./manage.sh whitelist add|remove <player...> | list | on | off | reload"
+                exit 1
+                ;;
+        esac
+        ;;
+    "cmd")
+        shift
+        [ $# -gt 0 ] || { echo "Usage: ./manage.sh cmd <console command>  (e.g. ./manage.sh cmd spark tps)"; exit 1; }
+        mc_cmd "$@"
+        ;;
     "logs")
         echo "📄 Following CLEAN server logs (Spam hidden)..."
         echo "   (Use './manage.sh logs-full' to see everything)"
@@ -144,7 +177,8 @@ case "$1" in
     "help"|*)
         echo "Minecraft Server Manager"
         echo "Usage: ./manage.sh [command]"
-        echo "Commands: start, stop, restart, properties, edit, tune, console, logs"
+        echo "Commands: start, stop, restart, properties, edit, tune, console, cmd <command>, logs"
+        echo "Players:  whitelist add|remove <player...>, whitelist list|on|off|reload"
         echo "Backups:  backup, backups, verify <file>, backup-info <file>, restore [file], reset"
         ;;
 esac

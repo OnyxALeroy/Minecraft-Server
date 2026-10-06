@@ -43,6 +43,18 @@ set_prop entity-broadcast-range-percentage "$ENTITY_BROADCAST_RANGE"
 set_prop sync-chunk-writes "$SYNC_CHUNK_WRITES"
 set_prop network-compression-threshold "$NETWORK_COMPRESSION_THRESHOLD"
 set_prop max-tick-time "$MAX_TICK_TIME"
+set_prop white-list "$WHITELIST"
+set_prop enforce-whitelist "$WHITELIST"
+
+# RCON lets ./manage.sh send console commands (whitelist, cmd...).
+# Port 25575 is NOT published in docker-compose.yml: only reachable inside the container.
+# New random password on every boot.
+echo "Enabling internal RCON..."
+set_prop enable-rcon true
+set_prop rcon.port 25575
+RCON_PW=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 24)
+sed -i "s|^rcon.password=.*|rcon.password=${RCON_PW}|" server.properties
+grep -q "^rcon.password=" server.properties || echo "rcon.password=${RCON_PW}" >> server.properties
 
 # --- 4. INSTALL MODPACK ---
 MRPACK_FILE=$(find /modpack -name "*.mrpack" | head -n 1)

@@ -79,6 +79,25 @@ Shows:
 - Run commands such as `spark tps` or `chunky start`
 - Detach with **Ctrl-P then Ctrl-Q**. Ctrl-C stops the server!
 
+Or send a single command without attaching (server must be running):
+```bash
+./manage.sh cmd spark tps
+./manage.sh cmd op Steve
+```
+
+### Whitelist
+Enabled by default (`WHITELIST=true` in `server.env`): only listed players can join.
+```bash
+./manage.sh whitelist add Steve Alex   # Allow players (one or more)
+./manage.sh whitelist remove Steve     # Remove (kicks them if online)
+./manage.sh whitelist list             # Show who is allowed
+./manage.sh whitelist off              # Open the server until next restart
+./manage.sh whitelist reload           # After hand-editing server-data/whitelist.json
+```
+- The server must be running (commands go through an internal RCON, never exposed outside the container)
+- To open the server permanently: set `WHITELIST=false` in `server.env`, then `./manage.sh restart`
+- `whitelist.json` (and `ops.json`, ban lists) are included in backups
+
 ## 📊 Server Management
 
 ```bash
